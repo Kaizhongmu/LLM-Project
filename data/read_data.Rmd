@@ -59,8 +59,5 @@ empty_df$Document.ID=id_value
 write_xlsx(empty_df, "fill_sample.xlsx")
 ```
 
-# Read filled data
-```{r}
-df=read.csv("fill_sample.csv")
-```
+
 
