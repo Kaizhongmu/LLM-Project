@@ -1,0 +1,66 @@
+---
+title: "read_data"
+author: "Mike Mu"
+date: "2025-07-02"
+output: html_document
+---
+
+#packages 
+```{r}
+library(readxl)
+library(writexl)
+library(dplyr)
+```
+
+# Subset sample data (random sample)
+```{r}
+# read data 
+setwd("/Users/app/Desktop/暑研/LLM")
+data_remove=read.csv("Processed_data (1).csv")
+data=read_excel("lxb-wz2c-m46p (1).xlsx")
+dim(data)
+
+# remove 100 rows that are already reviewed
+ID=data_remove$Document.ID
+data=data%>%
+  filter(!(`Document ID`%in% ID))
+
+# randomly select 100 entries 
+set.seed(2025) 
+my_sample <- data%>%
+  slice_sample(n = 100)
+write.csv(my_sample, "random_100_rows.csv", row.names = FALSE)
+```
+
+# Create empty dataset with interested varaible 
+```{r}
+my_sample =read.csv("random_100_rows.csv")
+column_names <- c(
+  "Document.ID",
+  "Tone",
+  "Tone_justify",
+  "Tone_quote",
+  "Commenter_Role",
+  "Specialty",
+  "Patient_cost",
+  "Patient_quality",
+  "Provider_pay",
+  "Provider_quality",
+  "Other",
+  "Justification",
+  "Quote"
+)
+
+# Create an empty data frame with these columns
+id_value=my_sample$Document.ID
+empty_df <- data.frame(matrix(NA, nrow = length(id_value), ncol = length(column_names)))
+colnames(empty_df) <- column_names
+empty_df$Document.ID=id_value
+write_xlsx(empty_df, "fill_sample.xlsx")
+```
+
+# Read filled data
+```{r}
+df=read.csv("fill_sample.csv")
+```
+
