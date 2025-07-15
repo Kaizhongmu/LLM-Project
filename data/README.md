@@ -21,6 +21,6 @@ The original data is in **[lxb-wz2c-m46p (1).xlsx](./lxb-wz2c-m46p%20(1).xlsx)**
 | Quote            | String  | Contains direct excerpts from the comment that support the assigned values for Patient_cost, Patient_quality, Provider_pay, and Provider_quality.                                                                                                                                    | "Unfortunately, the poor and elderly are suffering the most from the egregious underpayments from almost all Medicare drug plans." |
 
 
-[📥 Click here to download the HTML file](https://github.com/mikemu123/LLM-Project/raw/main/data/read_data.html)
+[📥 Click here to download the HTML file](https://github.com/Kaizhongmu/LLM-Project/blob/main/data/read_data.html)
 
 
