@@ -23,7 +23,8 @@ The original data is in **[lxb-wz2c-m46p (1).xlsx](./lxb-wz2c-m46p%20(1).xlsx)**
 
 ## 🔍 EDA Report
 
-- [🌐 Click here to preview the HTML file in browser](https://htmlpreview.github.io/?https://github.com/Kaizhongmu/LLM-Project/raw/main/data/read_data.html)
+[🌐 Click here to preview the HTML file in browser](https://htmlpreview.github.io/?https://github.com/Kaizhongmu/LLM-Project/raw/main/data/read_data.html)
+
 
 
 
