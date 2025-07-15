@@ -22,9 +22,12 @@ The original data is in **[lxb-wz2c-m46p (1).xlsx](./lxb-wz2c-m46p%20(1).xlsx)**
 
 
 ## 🔍 EDA Report
-
-[🌐 Click here to preview the HTML file in browser](https://htmlpreview.github.io/?https://github.com/Kaizhongmu/LLM-Project/raw/main/data/read_data.html)
-
+<!-- Download EDA (Blue) -->
+<a href="[https://github.com/your-username/your-repo-name/raw/branch-name/yourfile.html](https://github.com/Kaizhongmu/LLM-Project/raw/main/data/read_data.html)" download>
+  <button style="background-color:#0366d6; color:white; border:none; padding:8px 16px; border-radius:5px; cursor:pointer;">
+    Download HTML File
+  </button>
+</a>
 
 
 
