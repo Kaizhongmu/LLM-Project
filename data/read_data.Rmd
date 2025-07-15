@@ -1,0 +1,679 @@
+---
+title: "Exploratory Data Analysis"
+author: "Mike Mu"
+date: "2025-07-02"
+output: html_document
+---
+
+
+
+```{r,echo=FALSE, message=FALSE,warning=FALSE,results='hide'}
+#######################################
+# Prepare work (random select sample) #
+#######################################
+library(readxl)
+library(writexl)
+library(dplyr)
+library(DataExplorer)
+library(ggplot2)
+library(plotly)
+library(tidyr)
+library(stringr)
+library(flextable)  
+library(RColorBrewer)
+library(gt)
+library(FSA) 
+
+# read data 
+setwd("/Users/app/Desktop/暑研/LLM")
+#data_remove=read.csv("Processed_data (1).csv")
+#data=read_excel("lxb-wz2c-m46p (1).xlsx")
+#dim(data)
+
+# remove 100 rows that are already reviewed
+#ID=data_remove$Document.ID
+#data=data%>%
+#  filter(!(`Document ID`%in% ID))
+
+# randomly select 100 entries 
+#set.seed(2025) 
+#my_sample <- data%>%
+#  slice_sample(n = 100)
+#write.csv(my_sample, "random_100_rows.csv", row.names = FALSE)
+
+# construct empty dataset 
+#y_sample =read.csv("random_100_rows.csv")
+#column_names <- c(
+#  "Document.ID",
+#  "Tone",
+#  "Tone_justify",
+#  "Tone_quote",
+#  "Commenter_Role",
+#  "Specialty",
+#  "Patient_cost",
+#  "Patient_quality",
+#  "Provider_pay",
+#  "Provider_quality",
+# "Other",
+#  "Justification",
+#  "Quote"
+#)
+
+# Create an empty data frame with these columns
+#id_value=my_sample$Document.ID
+#empty_df <- data.frame(matrix(NA, nrow = length(id_value), ncol = length(column_names)))
+#colnames(empty_df) <- column_names
+#empty_df$Document.ID=id_value
+#write_xlsx(empty_df, "fill_sample.xlsx")
+```
+
+## **Data**
+
+The original data is stored in the file `lxb-wz2c-m46p (1).xlsx`. After excluding the first 100 rows, a random sample of 100 entries was selected from the remaining data with seed 2025. Based on the human brain and ground truth, a summary of text comment of original data was extracted, recorded in total 13 features *Document.ID*, *Tone*, *Tone_justify*, *Tone_quote*, *Commenter_Role*, *Specialty*, *Patient_cost*, *Patient_quality*, *Provider_pay*, *Provider_quality*, *Other*, *Justification*, *Quote*, *Role_category* into a CSV file named `fill_sample.csv`. it contains 13 discrete variables and 100 rows, totaling 1,300 cells. Among them, 18.1% of the cells are empty,meaning no useful information could be extracted.
+
+
+## Missing value
+
+-   **Column-wise Missingness:**\
+    The *Commenter_Role* column has a missing rate of 40%, suggesting limited role identity information.\
+    The *Specialty* column, which reflects sub-identity of corresponding commenter's role , is missing in 80% of entries.\
+    The *Other* column, which captures other extractable information from comments, has a **74%** missing rate.\
+    I recommend paying close attention to the *Specialty* and *Other* columns, as their high missingness may affect the **robustness** of downstream analyses, depending on the study context.
+
+-   **Row-wise Missingness:** \
+    the 4 rows with the most missing values share one common trait: their tone is classified as "very negative".\
+    the 4 rows with the full information (Rows 15, 37, 69, and 83) share one common trait: their roles are tend to not be **non-professional roles, e.g.patient**, suggesting that professional identity may correlate with more complete information.
+
+```{r,echo=FALSE, message=FALSE,warning=FALSE,results='asis'}
+df=read_excel("fill_sample.xlsx")
+df[,7:10]=sapply(df[,7:10],as.factor)
+
+# overall exploration of dataset 
+#introduce(df)
+plot_intro(df,title="Overall Exploration of Sample")
+
+# explore missingness 
+plot_missing(df)                                     # missingness for each column 
+full_case=df[which(complete.cases(df)),]             #(less missingess cases) 
+worse_case=df[tail(order(rowSums(is.na(df))),8), ]   #(more missingness cases)
+```
+
+## Tone and Tone_justify Description & Exploration
+
+-   **Description:**\
+    The **tone** of a comment is categorized as *very_negative*, *negative*, *neutral*, or *positive*. The `tone_justify` provides the reasoning behind this classification based on linguistic metrics. These include `negative_word` (presence of words with negative connotation like *not*, *destroy*), `strong_word` (forceful terms like *must*, *stop*), `imperative` (use of imperative sentences), `capitalization` (use of capitalization for emphasis), `punctuation` (presence of punctuation mark such as *!* or *?*), `implicature` (present of indirect expression or implied negativity ), `objective` (whether is fact-based), and `supportive` (whether the comment expresses encouragement or approval). `high_frequency` (it measures how often these features occur within the comment, either by calculating the proportion of sentences containing such features or noting repeated use of the same indicator).
+
+-   **Tone Distribution:**\
+    "Percentage of Each Category in Tone" pie chart shows Negative and very negative tones have roughly equal proportions (43% and 45%, respectively). In contrast, neutral and positive tones are much less common (7% neutral, 1% positive). This indicates that the majority of people in the sample express a negative attitude toward PE.
+
+-   **Correlation between Tone and Tone_justify:**\
+    According to the chi-square test $p<0.05$, Tone-justify is statistically significant associated with Tone, showing the tone_justify we defined is reasonable. Heatmap which based on scaled Contingency table, shows the proportion for each Tone_justidy in the Tone. It could be explored vertically and horizontally, combined with pie charts.
+
+-   **Vertically:**\
+    In the *negative* tone category, the **negative_word** metric is the most dominant, while **capitalization**, **implicature**, **strong_word**, **objective**, and **supportive** appear least frequently.\
+    In the *very negative* tone, **punctuation** and **capitalization** contribute the most.\
+    In *neutral* and *positive* tones, only **objective** and **supportive** appear, respectively, as the sole contributing metrics.\
+
+-   **Horizontally :**\
+    In **negative_word**, *negative* tone contributed most, followed by *very negative*.\
+    In **strong_word**, **high_frequency**, **capitalization**, and **implicature**, *very negative* tone contributed most.\
+    In *neutral* and *positive* tones, only **objective** and **supportive** appear, respectively, as the sole contributing metrics.\
+    In **imperative**, *negative* tone contributes most.\
+    In **punctuation**, *negative* tone contributes most.\
+
+```{r,echo=FALSE, message=FALSE,warning=FALSE,results='asis'}
+
+######################################################################
+#####     Distributino of Tone                                     ###
+######################################################################
+pie_tone <- df %>%count(Tone) %>%
+  mutate(pct = round(100 * n / sum(n), 1),label = paste0(Tone, ": ", pct, "%"))
+blue_palette <- colorRampPalette(c("#deebf7", "steelblue"))
+plot_ly(pie_tone, labels = ~Tone, values = ~n, type = 'pie',
+        hoverinfo = 'label+percent', 
+        marker = list(colors = blue_palette(nrow(pie_tone))),
+        showlegend = TRUE) %>%
+  layout(title = "Percentage of Each Category in Tone")
+
+######################################################################
+####     correlation between Tone justification and Tone           ###
+######################################################################
+# contingency table
+df_summary <- df %>%
+  mutate(Tone_justify = str_replace_all(Tone_justify, fixed('"'), ""),
+         Tone_justify = str_trim(Tone_justify)) %>%
+  separate_rows(Tone_justify, sep = ",") %>%
+  group_by(Tone, Tone_justify) %>%
+  summarise(count = n()) %>%
+  ungroup()%>%
+  pivot_wider(names_from = Tone, values_from = count, values_fill = 0)
+contingency_table <- df_summary %>%select(-1) %>%as.matrix()
+
+# chisq exact test 
+#chisq_result <- chisq.test(contingency_table)
+#print(chisq_result)
+
+#percentage table 
+df_percentage=df_summary%>%
+  mutate(across(-Tone_justify,~./sum(.)))
+
+# heatmap 
+df_percentage_long <- df_percentage %>%
+  pivot_longer(
+    cols = -Tone_justify,
+    names_to = "Tone",
+    values_to = "Proportion"
+  )
+ggplot(df_percentage_long, aes(x = Tone, y = Tone_justify, fill = Proportion)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = sprintf("%.3f", Proportion)), color = "black")+
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  theme_minimal() +
+  labs(title = "Heatmap of Tone_Justify Proportions by Tone",
+       x = "Tone Category",
+       y = "Tone_Justify Metric",
+       fill = "Proportion") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+######################################################################
+#             Distribution of Tone_justify in each Tone              # 
+######################################################################
+# pie chart 
+plot_pie_tone <- function(tone_name) {
+  df_sub <- df_percentage_long %>% filter(Tone == tone_name, Proportion > 0)
+  n <- nrow(df_sub)  
+  colors <- blue_palette(n)  
+  plot_ly(df_sub, labels = ~Tone_justify, values = ~Proportion, type = 'pie',
+          marker = list(colors = colors)) %>%
+    layout(title = paste0("Pie Chart of Metrics in Tone: ", tone_name),
+           legend = list(orientation = 'h'))
+}
+
+
+plot_pie_tone("negative")
+plot_pie_tone("very_negative")
+plot_pie_tone("positve")
+plot_pie_tone("neutral")
+```
+
+## Commenter Roles Explanation and Exploration
+
+- **Description**\
+Based on whether the commenter role is directly affected by PE, I categorized roles into three groups: `"patient"`, `"provider"`, and `"other"`.For example, pharmacists and providers are grouped together under the provider category, while organization and attorney roles are grouped under other.The "patient" and "provider" groups are directly affected by PE through their involvement in the healthcare delivery chain. In contrast, the "other" group is indirectly affected by PE via institutional, legal, or organizational influences.
+
+- **Role and corresponding specialties **\
+    The table **"Commenter Role with Specialties"** summarizes all role names along with their corresponding specialty names. In the specialties column, missing or unavailable information is represented by a “–”. For example, the role nurse in our data corresponds to specialties including both “NA” and “register,” where “NA” indicates that the specialty information could not be directly extracted or inferred from the text.
+
+
+-  **Distribution of General Role**\
+     `"Distribution of General Role"`pie chart shows the proportion of the three groups: patient, provider, and other. The null category represents missing or unavailable role information.
+
+-  **Distribution of Commenter_Role within the most common general role groups**\
+     `"Distribution of Commenter Roles in General Role: xxxx"` pie charts display the distribution of Commenter_Role within the top 1 general role groups.
+
+-  **Distribution of Specialty Within the Most Common Commenter Role in the Most Common General Role Category **\
+` "Top xxxx Commenter Roles: Distribution of Specialty"` bar charts illustrate how specialties are distributed within a top n Commenter_Role in a given top 1 general role category.
+
+```{r,echo=FALSE, message=FALSE,warning=FALSE,results='asis'}
+################################################
+#.    Role and corresponding specialties.      #
+################################################
+role_details <- df %>%
+  select(Commenter_Role, Specialty) %>%
+  filter(!is.na(Commenter_Role)) %>%
+  distinct() %>%
+  group_by(Commenter_Role) %>%
+  summarise(Specialties = paste(unique(Specialty), collapse = ", "))%>%
+  mutate(Specialties = str_replace_all(Specialties, "\\bNA\\b", "-"))%>%
+  ungroup%>%
+  gt()%>%
+  tab_header(title = "Commenter Role with Specialties")
+role_details
+
+#################################################################
+#          pie chart (my-defined Role distribution)             #
+#################################################################
+
+df=df%>%
+  mutate(Role_category=case_when(
+    Commenter_Role %in% c("anesthesiologist","nurse","pharmacist","physician","provider","psychotherapist") ~ "provider",
+    Commenter_Role %in% c("patient") ~ "patient",
+    Commenter_Role %in% c("attorney","caregiver","cilvil_servant","organization") ~ "other"
+  ))
+pie_role <- df %>%
+  count(Role_category) %>%
+  mutate(pct = round(100 * n / sum(n), 1),label = paste0(Role_category, ": ", pct, "%"))
+blue_palette <- colorRampPalette(c("#deebf7", "steelblue"))
+plot_ly(pie_role, labels = ~Role_category, values = ~n, type = 'pie',
+        textinfo = 'label+percent',
+        hoverinfo = 'text',
+        text = ~label,
+        marker = list(colors = blue_palette(nrow(pie_role))),
+        showlegend = TRUE) %>%
+  layout(title = "Distribution of General Role")
+
+
+##########################################################################
+#   pie chart (commenter role distribution for first n my-defined Role)  #
+##########################################################################
+# for user input in the further 
+n=1
+blue_palette= colorRampPalette(c("#deebf7", "steelblue")) 
+top_roles= df%>%count(Role_category)%>%na.omit()%>%slice_max(order_by = n, n = n)%>%pull(Role_category)
+
+# plot pie chart for 1:n
+#for (most in top_roles) {
+most=top_roles
+  pie_role_most <- df %>%
+    filter(Role_category == most) %>%
+    count(Commenter_Role) %>%
+    mutate(
+      pct = round(100 * n / sum(n), 1),
+      label = paste0(Commenter_Role, ": ", pct, "%")
+    )
+ plot_ly(pie_role_most, labels = ~Commenter_Role, values = ~n, type = 'pie',
+               textinfo = 'label+percent',
+               hoverinfo = 'text',
+               text = ~label,
+               marker = list(colors = blue_palette(nrow(pie_role_most))),
+               showlegend = TRUE) %>%
+    layout(title = paste0("Distribution of Commenter Roles in General Roles: ", most))
+  
+#}
+
+
+############################################################################################
+#histogram (Specialty distribution for first n commenter Role in a given general role)     #
+############################################################################################
+# for user input in the further 
+n=6
+n_most=pie_role_most%>% slice_max(order_by = pct, n=n-1)%>%pull(Commenter_Role)
+n_most
+bar_data_all <- df %>%
+  filter(Commenter_Role %in% n_most) %>%
+  mutate(Specialty = replace_na(Specialty, "no information")) %>%
+  count(Commenter_Role, Specialty) %>%
+  group_by(Commenter_Role) %>%
+  mutate(
+    Proportion = n / sum(n),
+    label = paste0(Specialty, ": ", round(Proportion * 100, 1), "%")
+  ) %>%
+  ungroup()
+# plot bar chart
+specialty_levels <- unique(bar_data_all$Specialty)
+specialty_colors <- setNames(colorRampPalette(brewer.pal(3, "Blues"))(length(specialty_levels)),
+                             specialty_levels)
+
+plot_ly(bar_data_all,
+        x = ~Commenter_Role,
+        y = ~Proportion,
+        color = ~Specialty,
+        colors = specialty_colors,
+        type = "bar",
+        text = ~label,
+        hoverinfo = "text") %>%
+  layout(
+    barmode = "stack",
+    title = paste0( "Distribution of Specialties in Top ", n-1, " commenter_role given general Role is ", top_roles[1] ),
+    xaxis = list(title = "Commenter Role"),
+    yaxis = list(title = "Proportion", tickformat = ".0%", range = c(0, 1)),
+    legend = list(title = list(text = "Specialty"))
+  )
+```
+
+
+## Examples of Comments with Hard-to-Identify Commenter Roles
+
+These comments lack clear identifying information, making it difficult to classify the commenter roles. So, most of them are labeled as `NA` in Commenter_role
+
+- **FTC-2024-0022-1916**: Cannot determine the commenter role; role inference is difficult  
+  *Comment:*  
+  > As someone who lived in Europe for 5 years, I can say for certain that the US has the best health care and the most highly trained doctors in the world. I moved back to the US specifically because I needed better healthcare than I could find anywhere in Europe. Why would we want to degrade that so that a tiny minority of people can reap huge profits?? I am glad to see the government recognize the problems presented by consolidation in health care industries, particularly emergency rooms. Private equity firms often prioritize profits over patient care and worker safety, leading to higher costs, reduced quality of service, and increased risks for both patients and healthcare workers. I urge you to consider implementing policies that would limit or restrict the ability of private equity firms to acquire and operate emergency rooms. This could include stricter regulations on mergers and acquisitions in the healthcare industry, as well as greater transparency and accountability requirements for these firms. Thank you.
+
+- **FTC-2024-0022-0245**: Cannot determine the commenter role at all; text too short  
+  *Comment:*  
+  > Private equity has no business to be involved in the Medical Professions.
+
+- **FTC-2024-0022-1320**: Commenter role unclear, but "MD" appears in the name  
+  *Comment:*  
+  > It is unthinkable that the insurance company could own the hospital or practice, thus, employing the doctors that they already stranglehold with insurance denials. This is the definition of a nefarious monopoly!
+
+- **FTC-2024-0022-2091**: Commenter role uncertain; possibly nurse (mentions nursing)  
+  *Comment:*  
+  > Private Equity firms, large insurance companies have made working in healthcare extremely unfulfilling with constant pressures to meet unattainable patient volumes and constant cutting of staff and services with expectation. Current employees will continue to do more. Nursing is no longer about taking care of patients, but rather being able to check enough boxes on a computer screen. Large insurance companies that have constant denials on medication that are FDA approved for their condition make it difficult to care for patients in a manner that follows standards of care.
+
+---
+
+
+
+## Exploration of Correlation Between Commenter Role and Tone
+
+#### Association Between Commenter Role and Tone
+- Chi-square test indicates that `Commenter_Role` is statistically significantly associated with the `Tone` of the comment ($p<0.05$).
+
+- The Contingency Table Heatmap shows counts for each combination of Role (`"patient"`, `"provider"`, `"other"`, `"no information"`) and Tone category (`"negative"`, `"very negative"`, `"neutral"`, `"positive"`).
+
+---
+#### Distribution of Role Category per Tone
+
+The histogram showing the distribution of commenter roles within each tone reveals the following patterns:
+
+- In the **very negative tone**, the largest contributors are commenters without information on their Role, followed by patients and providers, while the smallest contribution comes from *Other*, which is defined as people who do not directly experience the PE. This may suggest that when expressing strong subjective emotions, people are less likely to explicitly state their Role.
+
+- In the **negative tone**, providers contribute the most, followed by NA (missing role information) and patients, with *Other* contributing the least. Together with the findings from the very negative tone, this implies that those most directly affected by PE (patients and providers) tend to express negative subjective emotions toward PE.
+
+- In the **neutral tone**, the *Other* group, defined as people not directly experiencing PE, contribute more, whereas patients contribute zero. This may indicate that people who do not directly experience PE are more likely to provide objective comments, while those directly affected tend to express negative subjective tones in their comments.
+
+---
+
+#### Distribution of Tone per Role Category
+
+The histogram showing the distribution of tone within each role category reveals the following:
+
+- For commenters with **no information on Role**, contributions are relatively highest in the negative and very negative tones. Combining this with the longitudinal interpretation—that those directly experiencing PE tend to show negative or very negative tones—this suggests that many commenters without role information may actually belong to the patient or provider groups if forced to classify within patient, provider, or other.
+
+- For **providers** and **patients**, both groups are contributed  more by negative or very negative tones compared to neutral or positive tones. Moreover, providers are contributed by more to the negative tone than the very negative tone compared to patients. This may be due to providers’ professional training and occupational discipline, which help them better regulate emotional expression when describing issues.
+
+- For **Other**, contribution from positive tone is the least, while contributions from negative, very negative, and neutral tones show no marked imbalance. This suggests that people who do not directly experience PE tend not to hold supportive attitudes toward PE, indicating that PE’s impact is broad and its societal effect is primarily negative.
+
+```{r,echo=FALSE, message=FALSE,warning=FALSE,results='asis'}
+
+#############################################
+#     contingency table with heat map       # 
+#############################################
+#contingency table
+tone_role_data=df%>%
+  group_by(Role_category,Tone)%>%
+  count()%>%
+  ungroup()%>%
+  pivot_wider(names_from = Tone, values_from = n)%>%
+  mutate(across(-1,~replace_na(.,0)))%>%
+  select(-any_of("NA"))
+
+# chi-sqaure test 
+contingency_table <- tone_role_data %>%select(-1) %>%as.matrix()
+#chisq_result <- chisq.test(contingency_table)
+#print(chisq_result)
+
+# heatmap
+df_long <- pivot_longer(tone_role_data, cols = -Role_category, names_to = "Tone", values_to = "Count")
+ggplot(df_long, aes(x = Tone, y = Role_category, fill = Count)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Count), color = "black") +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  theme_minimal() +
+  labs(title = "Contingency Table Heatmap", x = "Tone", y = "Role")
+
+
+
+
+#####################################################
+#######     for distribution of role by tone   ######
+#####################################################
+#percentage table 
+percentage_table_by_tone = tone_role_data %>%
+  mutate(across(-Role_category, as.numeric)) %>%
+  mutate(across(-Role_category, ~./sum(.))) %>%
+  pivot_longer(cols = -Role_category,names_to = "Tone",values_to = "Proportion")%>%
+  mutate(Role_category = ifelse(is.na(Role_category), "no information", Role_category),
+         label = paste0(Role_category, ": ", round(Proportion * 100, 1), "%"))
+
+# plot 
+role_colors <- setNames(colorRampPalette(brewer.pal(3, "Blues"))(n_distinct(percentage_table_by_tone$Role_category)),
+  unique(percentage_table_by_tone$Role_category))
+plot_ly(
+  percentage_table_by_tone,
+  x = ~Tone,
+  y = ~Proportion,
+  color = ~Role_category,
+  colors = role_colors,
+  type = "bar",
+  text = ~label,
+  textposition = "outside",
+  hoverinfo = "text"
+) %>%
+  layout(
+    barmode = "stack",
+    title = "Distribution of Role Category per Tone",
+    xaxis = list(title = "Tone"),
+    yaxis = list(title = "Proportion", range = c(0, 1)),
+    legend = list(title = list(text = "Role Category"))
+  )
+
+
+###########################################################
+#    percentage table for distribution of role by tone    #
+###########################################################
+#percentage table 
+percentage_table_by_role = tone_role_data %>%
+  mutate(across(-Role_category, as.numeric)) %>%
+  rowwise() %>%
+  mutate(row_sum = sum(c_across(-Role_category), na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(across(-c(Role_category, row_sum), ~./row_sum)) %>%
+  select(-row_sum) %>%
+  pivot_longer(cols = -Role_category, names_to = "Tone", values_to = "Proportion") %>%
+  mutate(Role_category = ifelse(is.na(Role_category), "no information", Role_category),
+         label = paste0(Tone, ": ", round(Proportion * 100, 1), "%"))
+#plot
+tone_colors <- setNames(colorRampPalette(brewer.pal(3, "Blues"))(n_distinct(percentage_table_by_role$Tone)),
+  unique(percentage_table_by_role$Tone))
+plot_ly(
+  percentage_table_by_role,
+  x = ~Role_category,
+  y = ~Proportion,
+  color = ~Tone,
+  colors = tone_colors,
+  type = "bar",
+  text = ~label,
+  textposition = "outside",
+  hoverinfo = "text"
+) %>%
+  layout(
+    barmode = "stack",  
+    title = "Distribution of Tone per Role Category",
+    xaxis = list(title = "Role Category"),
+    yaxis = list(title = "Proportion", range = c(0, 1)),
+    legend = list(title = list(text = "Tone"))
+  )
+
+```
+
+## Exploration of comment's length 
+
+word_count features the comment text length. For the comments recorded in the attached files, I count the words manually. For the comments recorded in the original data cell, I count the words through function str_count() in R. 
+
+- **Overall Summary of Word_count** "Overall Summary Word Count" table and histogram show the overall distribution of word_count. It is obvious a long right-tail distribution, suggesting the further statistics test would be used should not the test that based on the normal distribution 
+
+- **Summary of Word_count by Tone:** Kruskal-Wallis H test (non-parametric) shows us the there are significant differences in the distribution of word_count among different Tone groups; From the "Summary Word Count by Tone" table, the very negative tone's comment is systematically shorter than the negative tone's, but this different is not statistically significant; the difference between neutral tone's word_count and negative tone's word_cound is statistically significant; the difference between neutral tone's word_count and very negative tone's word_cound is statistically significant
+
+- **Summary of Word_count by Role_category:** Kruskal-Wallis H test and "Summary Word Count by Role_category" table tell us there is no statistically significant difference of word_count by Role_category
+
+- **Summary of Word_count by concern level:**  To explore whether comment length varies across different aspects of concern, I constructed a new variable, `Concern_Level`, based on four binary indicators: `Patient_cost`, `Patient_quality`, `Provider_pay`, and `Provider_quality`. I calculated the row-wise sum of these four variables for each comment, resulting in a score ranging from 0 to 4, labeled as `"No Concern"` (0), `"Low"` (1), `"Medium"` (2), `"High"` (3), and `"Highest"` (4), interpreted as a measure of  “concern breadth”. To assess whether comment length differs significantly across these concern levels, I first conducted group-wise descriptive statistics of word_count("Summary of Word Count by Concern Level" table), followed by a Kruskal–Wallis test to detect any overall differences. Since the Kruskal–Wallis test is significant ($p<0.05$), I applied Dunn’s post hoc pairwise comparisons with Bonferroni correction to identify which specific levels differed significantly in comment length. it shows that having **Low**, **Medium**, and **High** levels of concern were all significantly longer than those with **No Concern** (p < 0.05 for all three comparisons).
+
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE,results='asis'}
+# word count for comment 
+original_data=read_xlsx("random_100_rows.xlsx")
+original_data=original_data%>%
+  mutate(word_count=
+           ifelse(row_number()%in%c(14,16,26,37,48,60,65,71,97),# those row's comment is in pdf file 
+                  NA,
+                  str_count(Comment,"\\S+")))
+df=df %>%
+  mutate(word_count=original_data$word_count)
+fill_values <- c(3724, 6297, 105, 2720, 1741, 914, 1805, 1199, 1401) # manually impute word counts for those row 
+target_rows <- c(14, 16, 26, 37, 48, 60, 65, 71, 97)
+df$word_count[target_rows] <- fill_values
+
+
+##################################
+# overall summary of word_count 
+##################################
+df %>%
+  summarise(
+    count = sum(!is.na(word_count)),
+    missing = sum(is.na(word_count)),
+    min = min(word_count, na.rm = TRUE),
+    q1 = quantile(word_count, 0.25, na.rm = TRUE),
+    median = median(word_count, na.rm = TRUE),
+    mean = mean(word_count, na.rm = TRUE),
+    q3 = quantile(word_count, 0.75, na.rm = TRUE),
+    max = max(word_count, na.rm = TRUE),
+    sd = sd(word_count, na.rm = TRUE)
+  ) %>%
+  gt() %>%
+  tab_header(
+    title = "Overall Summary Word Count"
+  ) 
+# plot histogram  of word_count
+ggplot(df, aes(x = word_count)) +
+  geom_histogram(binwidth = 10, color = "blue") +
+  labs(
+    title = "Distribution of Comment Word Counts",
+    x = "Word Count",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+```
+
+---
+
+```{r,echo=FALSE, message=FALSE,warning=FALSE,results='asis'}
+####################################################################
+## distribution of word count by Tone 
+####################################################################
+# table
+df%>%
+  group_by(Tone)%>%
+  summarise(
+    count = sum(!is.na(word_count)),
+    min = min(word_count, na.rm = TRUE),
+    q1 = quantile(word_count, 0.25, na.rm = TRUE),
+    median = median(word_count, na.rm = TRUE),
+    mean = mean(word_count, na.rm = TRUE),
+    q3 = quantile(word_count, 0.75, na.rm = TRUE),
+    max = max(word_count, na.rm = TRUE),
+    sd = sd(word_count, na.rm = TRUE)
+  ) %>%
+  gt()%>%
+  tab_header(
+    title = "Summary Word Count by Tone "
+  ) 
+# test 
+kw_result=kruskal.test(word_count ~ Tone, data = df)
+kw_table <- data.frame(
+  Statistic = round(kw_result$statistic, 3),
+  Df = kw_result$parameter,
+  P_value = format.pval(kw_result$p.value, digits = 4, eps = .0001))
+gt(kw_table) %>%
+  tab_header(title = "Kruskal-Wallis Test for Word Count by Tone")
+
+
+dunn_result <- dunnTest(word_count ~ Tone, data = df, method = "bonferroni")
+dunn_table <- dunn_result$res
+dunn_table$P.adj <- format.pval(dunn_table$P.adj, digits = 4, eps = .0001)
+gt(dunn_table) %>%
+  tab_header(title = "Dunn's Test for Word Count by Tone")
+```
+
+---
+
+```{r,echo=FALSE, message=FALSE,warning=FALSE,results='asis'}
+####################################################################
+## distribution of word count by Role_category 
+####################################################################
+#table 
+df%>%
+  group_by(Role_category)%>%
+  summarise(
+    count = sum(!is.na(word_count)),
+    min = min(word_count, na.rm = TRUE),
+    q1 = quantile(word_count, 0.25, na.rm = TRUE),
+    median = median(word_count, na.rm = TRUE),
+    mean = mean(word_count, na.rm = TRUE),
+    q3 = quantile(word_count, 0.75, na.rm = TRUE),
+    max = max(word_count, na.rm = TRUE),
+    sd = sd(word_count, na.rm = TRUE)
+  ) %>%
+  gt()%>%
+  tab_header(
+    title = "Summary Word Count by Role_category "
+  ) 
+# test 
+kw_result=kruskal.test(word_count ~ Role_category, data = df)
+kw_table <- data.frame(
+  Statistic = round(kw_result$statistic, 3),
+  Df = kw_result$parameter,
+  P_value = format.pval(kw_result$p.value, digits = 4, eps = .0001))
+gt(kw_table) %>%
+  tab_header(title = "Kruskal-Wallis Test for Word Count by Role_category")
+
+
+dunn_result <- dunnTest(word_count ~ Role_category, data = df, method = "bonferroni")
+dunn_table <- dunn_result$res
+dunn_table$P.adj <- format.pval(dunn_table$P.adj, digits = 4, eps = .0001)
+gt(dunn_table) %>%
+  tab_header(title = "Dunn's Test for Word Count by Role_category")
+```
+
+---
+
+```{r,echo=FALSE, message=FALSE,warning=FALSE,results='asis'}
+####################################################################
+## distribution of word count by Role_category 
+####################################################################
+# table 
+df <- df %>%
+  mutate(
+    Concern_Level = factor(
+      as.numeric(Patient_cost) +
+        as.numeric(Patient_quality) +
+        as.numeric(Provider_pay) +
+        as.numeric(Provider_quality),
+      levels = 0:4,
+      labels = c("No Concern", "Low", "Medium", "High", "Highest")
+    )
+  )
+
+df %>%
+  group_by(Concern_Level) %>%
+  summarise(
+    count = sum(!is.na(word_count)),
+    min = min(word_count, na.rm = TRUE),
+    q1 = quantile(word_count, 0.25, na.rm = TRUE),
+    median = median(word_count, na.rm = TRUE),
+    mean = mean(word_count, na.rm = TRUE),
+    q3 = quantile(word_count, 0.75, na.rm = TRUE),
+    max = max(word_count, na.rm = TRUE),
+    sd = sd(word_count, na.rm = TRUE)
+  ) %>%
+  gt() %>%
+  tab_header(
+    title = "Summary of Word Count by Concern Level"
+  )
+df$Concern_Level <- as.factor(df$Concern_Level)
+
+# test
+kw_result=kruskal.test(word_count ~ Concern_Level, data = df)
+kw_table <- data.frame(
+  Statistic = round(kw_result$statistic, 3),
+  Df = kw_result$parameter,
+  P_value = format.pval(kw_result$p.value, digits = 4, eps = .0001))
+gt(kw_table) %>%
+  tab_header(title = "Kruskal-Wallis Test for Word Count by Concern_Level")
+
+
+dunn_result <- dunnTest(word_count ~ Concern_Level, data = df, method = "bonferroni")
+dunn_table <- dunn_result$res
+dunn_table$P.adj <- format.pval(dunn_table$P.adj, digits = 4, eps = .0001)
+gt(dunn_table) %>%
+  tab_header(title = "Dunn's Test for Word Count by Concern_Level")
+```
+
+```{r}
+write.csv(df,"100_entries_sample.csv")
+```
+
+
