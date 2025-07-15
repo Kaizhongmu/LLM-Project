@@ -1,6 +1,6 @@
 # Data Description
 
-The original data is in **[lxb-wz2c-m46p (1).xlsx](./lxb-wz2c-m46p%20(1).xlsx)**. Excluding the first 100 rows, we randomly selected 100 entries from the remaining data using a seed of 2025. Based on this sample of 100 entries, we reviewed each comment and, according to the ground truth, recorded the relevant information into **[fill_sample.csv](./fill_sample.csv)**. The provide the R code to randomly select 100 entries from the original Excel file. 
+The original data is in **[lxb-wz2c-m46p (1).xlsx](./Original data.xlsx)**. Excluding the first 100 rows, we randomly selected 100 entries from the remaining data using a seed of 2025. Based on this sample of 100 entries, we reviewed each comment and, according to the ground truth, recorded the relevant information into **[fill_sample.csv](./data.csv)**. The provide the R code to randomly select 100 entries from the original Excel file. 
 
 ## Variables in `fill_sample.csv`
 
